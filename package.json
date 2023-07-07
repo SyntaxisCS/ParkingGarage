@@ -1,0 +1,15 @@
+{
+  "name": "parkinggarage",
+  "version": "0.0.1",
+  "description": "Parking Garage Simulator",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "brain.js": "^2.0.0-beta.23",
+    "readline-sync": "^1.4.10"
+  }
+}
