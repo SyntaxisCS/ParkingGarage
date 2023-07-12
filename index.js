@@ -12,7 +12,7 @@ const garage = new ParkingGarage(ROWS, COLUMNS, GATES, CARCOUNT);
 let frames = 0;
 let interval = setInterval(() => {
     // Clear the console
-    //console.clear();
+    console.clear();
     //garage.renderStats();
     console.info(`Refreshed! Frame: ${frames}`);
     frames++;

@@ -211,29 +211,33 @@ class ParkingGarage {
 
         // Randomly spawn cars at the gates
         this.cars.forEach((car, index) => {
-            const spawnGate = getRandomElement(this.gateIndexes);
-            const gateRow = parseInt(spawnGate.split(",")[0]);
-            const gateColumn = parseInt(spawnGate.split(",")[1]);
+            setTimeout(() => {
 
-            // Set car's initial direction
-            if (gateRow === 0) {
-                car.updateDirection("d");
-            } else if (gateRow === this.rows - 1) {
-                car.updateDirection("u");
-            } else if (gateColumn === 0) {
-                car.updateDirection("r");
-            } else if (gateColumn === this.columns - 1) {
-                car.updateDirection("l");
-            };
+                const spawnGate = getRandomElement(this.gateIndexes);
+                const gateRow = parseInt(spawnGate.split(",")[0]);
+                const gateColumn = parseInt(spawnGate.split(",")[1]);
 
-            // Update the car's position to the gate
-            car.updateLocation(gateRow, gateColumn);
-            this.grid[gateRow][gateColumn] = "C";
+                // Set car's initial direction
+                if (gateRow === 0) {
+                    car.updateDirection("d");
+                } else if (gateRow === this.rows - 1) {
+                    car.updateDirection("u");
+                } else if (gateColumn === 0) {
+                    car.updateDirection("r");
+                } else if (gateColumn === this.columns - 1) {
+                    car.updateDirection("l");
+                };
 
-            // Start the car's movement
-            setInterval(() => {
-                car.searchForParkingSpace(this);
-            }, 1000); // Once per second
+                // Update the car's position to the gate
+                car.updateLocation(gateRow, gateColumn);
+                this.grid[gateRow][gateColumn] = "C";
+
+                // Start the car's movement
+                setInterval(() => {
+                    car.searchForParkingSpace(this);
+                }, 1000); // Once per second
+
+            }, Math.floor(Math.random() * 5000) + 1000);
         });
     };
 
@@ -290,7 +294,6 @@ class ParkingGarage {
 
         // Get the original symbol at the car's current location
         const originalSymbol = car.originalSymbol;
-        console.log(originalSymbol);
 
         // Update the grid with the car's next location
         this.grid[parkingRow][parkingColumn] = "c";
@@ -298,6 +301,13 @@ class ParkingGarage {
         this.updateGridWithOriginalSymbol(currentRow, currentColumn, originalSymbol);
         console.log(`${car.color} ${car.year} ${car.make} ${car.model} has parked at (${parkingRow},${parkingColumn})`);
 
+    };
+
+    leave(car, gateRow, gateColumn) {
+        console.info(`${car.color} ${car.year} ${car.make} ${car.model} (${car.plate.number} of ${car.plate.state}) has left the garage at (${gateRow},${gateColumn})`);
+        
+        // Update the grid
+        this.grid[gateRow][gateColumn] = car.originalSymbol;
     };
 
     // Rendering

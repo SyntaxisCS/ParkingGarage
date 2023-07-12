@@ -1,3 +1,5 @@
+const PF = require("pathfinding");
+
 class Car {
     constructor(carId, year, make, model, plate, color) {
         this.carId = carId;
@@ -8,12 +10,13 @@ class Car {
         this.color = color;
 
         // Storage
-        this.currentState = "moving";
+        this.currentState = "searching";
         this.parkingTimer = 0;
         this.numVisits = 0;
         this.location = { row: 0, column: 0}; // Initialize location to 0,0, will be changed to spawn gate/parking spot
         this.direction = ""; // Direction the car is moving
         this.originalSymbol = " ";  // Store the original symbol at the car's location
+        this.pathStorage = [];
     };
 
     // Increase number of visits
@@ -193,14 +196,20 @@ class Car {
     searchForParkingSpace(parkingGarage) {
         if (this.currentState === "parked") {
             if (this.parkingTimer <= 0) {
-                console.log(this);
                 // go back to gate and leave
+                this.leaveGarage(parkingGarage);
             } else {
                 this.parkingTimer--;
             }
         }
 
-        if (this.currentState === "moving") {
+        if (this.currentState === "leaving") {
+            // Move to gate
+            this.findClosestGate(parkingGarage, this.location.row, this.location.column);
+            this.moveAlongPath(parkingGarage);
+        }
+
+        if (this.currentState === "searching") {
             const currentRow = this.location.row;
             const currentColumn = this.location.column;
 
@@ -378,9 +387,103 @@ class Car {
         this.originalSymbol = "P";
     };
 
-    leaveGarage(parkingGarge) {
+    moveAlongPath(parkingGarage) {
+        if (this.pathStorage.length > 0) {
+            // move to first element of path
+            const nextRow = parseInt(this.pathStorage[0][1]);
+            const nextColumn = parseInt(this.pathStorage[0][0]);
 
+            // remove first element from path
+            this.pathStorage.shift();
+
+            if (this.pathStorage.length >= 1) {
+                // move to next position
+                parkingGarage.moveCar(this, nextRow, nextColumn);
+                this.location.row = nextRow;
+                this.location.column = nextColumn;
+
+                // Update original symbol
+                this.originalSymbol = parkingGarage.grid[nextRow][nextColumn];
+            } else {
+                // path is gone
+                parkingGarage.leave(this, nextRow, nextColumn);
+            }
+
+        } else {
+            // set state to archived
+            this.currentState = "archived";
+        }
+    }
+
+    leaveGarage(parkingGarge) {
+        // Perform pathfinding to find the closest gate to the car
+        const currentRow = this.location.row;
+        const currentColumn = this.location.column;
+
+        // Find the closest gate using pathfinding
+        const closestGate = this.findClosestGate(parkingGarge, currentRow, currentColumn);
+
+        // Move the car to the closest gate
+        if (closestGate) {
+            console.log("find path, moving aslong it")
+            this.currentState = "leaving";
+            this.pathStorage = closestGate;
+            this.moveAlongPath(parkingGarge);
+        } else {
+            console.warn(`No gate found. ${this.color} ${this.year} ${this.make} ${this.model} (${this.plate.number} of ${this.plate.state}) cannot leave the garage.`);
+        }
     };
-}
+
+    findClosestGate(parkingGarage, startRow, startColumn) {
+        const grid = parkingGarage.grid;
+        const finder = new PF.AStarFinder();
+
+        // Create a pathfinding grid of the parking garage
+        const PFGrid = new PF.Grid(grid[0].length, grid.length);
+
+        // Set the walkable values based on grid contents
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[r].length; c++) {
+                if (grid[r][c] === "C" || grid[r][c] === "|" || grid[r][c] === "-") {
+                    PFGrid.setWalkableAt(c, r, true);
+                } else {
+                    PFGrid.setWalkableAt(c, r, false);
+                }
+            }
+        };
+
+        // Array of paths to gate
+        let gatePaths = [];
+
+        // Path find for each gate
+        parkingGarage.gateIndexes.forEach(gate => {
+            const gateRow = parseInt(gate.split(",")[0]);
+            const gateColumn = parseInt(gate.split(",")[1]);
+
+            const path = finder.findPath(startColumn, startRow, gateColumn, gateRow, PFGrid);
+
+            // If path to gate exists
+            if (path.length > 1) {
+                gatePaths.push(path);
+            };
+        });
+
+        // Check if there are any paths
+        if (gatePaths.length > 0) {
+            let shortestPath = gatePaths[0];
+
+            // check for shortest path
+            gatePaths.forEach(path => {
+                if (shortestPath.length > path.length) {
+                    shortestPath = path;
+                }
+            });
+
+            return shortestPath;
+        } else {
+            return null; // Return null if no gate is found
+        }
+    };
+};
 
 module.exports = Car;
