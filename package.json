@@ -1,6 +1,6 @@
 {
   "name": "parkinggarage",
-  "version": "0.0.4",
+  "version": "0.0.10",
   "description": "Parking Garage Simulator",
   "main": "index.js",
   "scripts": {
