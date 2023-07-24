@@ -4,7 +4,7 @@ const ParkingGarage = require("./parkingGarage");
 const ROWS = 25;
 const COLUMNS = 50;
 const GATES = 1;
-const CARCOUNT = 1;
+const CARCOUNT = 10;
 
 const garage = new ParkingGarage(ROWS, COLUMNS, GATES, CARCOUNT);
 

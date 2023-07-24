@@ -50,11 +50,10 @@ class Car {
     
     // Master function
     run(parkingGarage) { // essentially a master clock
-        console.log(this);
         if (this.currentState === "parked") {
             if (this.parkingTimer <= 0) {
                 // go back to gate and leave the garage
-                this.leave(parkingGarage);
+                this.prepareToLeave(parkingGarage);
             } else {
                 this.parkingTimer--;
             }
@@ -80,7 +79,6 @@ class Car {
         const parkingSpaces = this.checkForParkingSpaces(parkingGarage, positions);
 
         if (parkingSpaces) {
-            console.log(parkingSpaces);
             // park car
             this.park(parkingGarage, parkingSpaces);
 
@@ -147,12 +145,20 @@ class Car {
         const currentRow = this.location.row;
         const currentColumn = this.location.column;
 
+        // Set original symbol
+        this.originalSymbol = "P";
+
         // Find the closest gate using pathfinding
         const closestGate = this.findClosestGate(parkingGarage, currentRow, currentColumn);
 
         // Move the car to the closest gate
         if (closestGate) {
             this.pathStorage = closestGate;
+
+            // Update current state
+            this.updateCurrentState("leaving");
+
+            // start leaving
             this.leave(parkingGarage);
         } else {
             console.warn(`No gate found. ${this.color} ${this.year} ${this.make} ${this.model} (${this.plate.number} of ${this.plate.state}) cannot leave the garage.`);
@@ -222,7 +228,6 @@ class Car {
 
     // Checks for and chooses a lane to go down
     checkForLanes(parkingGarage, positions) {
-        console.log(positions);
         // Get symbols
         // Forward
         if (parkingGarage.grid[positions.forward.row]) {
@@ -384,6 +389,10 @@ class Car {
         // Set the walkable values based on grid contents
         for (let r = 0; r < grid.length; r++) {
             for (let c = 0; c < grid[r].length; c++) {
+                if (r === startRow && c === startColumn) {
+                    PFGrid.setWalkableAt(c, r, true);
+                }
+
                 if (grid[r][c] === "C" || grid[r][c] === "|" || grid[r][c] === "-") {
                     PFGrid.setWalkableAt(c, r, true);
                 } else {
@@ -399,6 +408,9 @@ class Car {
         parkingGarage.gateIndexes.forEach(gate => {
             const gateRow = parseInt(gate.split(",")[0]);
             const gateColumn = parseInt(gate.split(",")[1]);
+
+            // Set gate as walkable
+            PFGrid.setWalkableAt(gateColumn, gateRow, true);
 
             const path = finder.findPath(startColumn, startRow, gateColumn, gateRow, PFGrid);
 
@@ -418,6 +430,10 @@ class Car {
                     shortestPath = path;
                 }
             });
+
+            console.log(shortestPath);
+
+            return shortestPath;
         } else {
             return null; // Return null if no gate is found
         }

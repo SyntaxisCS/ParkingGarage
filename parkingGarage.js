@@ -1,5 +1,5 @@
 const PF = require("pathfinding");
-const {getRandomElement} = require("./Utils/helpers.js");
+const {getRandomElement, getRandomElements} = require("./Utils/helpers.js");
 const Car = require("./car");
 
 class ParkingGarage {
@@ -40,7 +40,7 @@ class ParkingGarage {
 
                 // define "textures"
                 if (r === 0 || r === this.rows - 1) { // define top and bottom borders
-                    this.grid[r][c] = "=";
+                    this.grid[r][c] = "═";
                 } else if (c === 0 || c === this.columns - 1) { // define left and right borders
                     this.grid[r][c] = "‖";
                 } else { // create empty space
@@ -72,9 +72,9 @@ class ParkingGarage {
                     if (side === "t" || side === "b") { // top and bottom
                         let column = Math.floor(Math.random() * (this.columns - 2)) + 1;
                         
-                        // this.grid[topRow][column-1] = "|";
+                        this.grid[topRow][column-1] = "╗";
                         this.grid[topRow][column] =  " ";
-                        // this.grid[topRow][column+1] = "|";
+                        this.grid[topRow][column+1] = "╔";
 
                         numOfGates++;
                         this.gateIndexes.push(`${topRow},${column}`);
@@ -97,36 +97,60 @@ class ParkingGarage {
 
     // Draw lanes
     generateLanes() {
-        const finder = new PF.AStarFinder(); // Create an instance of the A* pathfinder
-        const pathGrid = new PF.Grid(this.columns, this.rows); // Create a grid for the pathfinder, Rows and columns are flipped as Grid asks for width, height
+        const finder = new PF.AStarFinder();
+        const pathGrid = new PF.Grid(this.columns, this.rows);
 
-        this.gateIndexes.forEach((gate, index) => {
+        this.gateIndexes.forEach(gate => {
             const gateRow = parseInt(gate.split(",")[0]);
             const gateColumn = parseInt(gate.split(",")[1]);
 
             let randomRow, randomColumn;
 
             do {
-                randomRow = Math.floor(Math.random() * (this.rows - 2)) + 1;
-                randomColumn = Math.floor(Math.random() * (this.columns - 2)) + 1;
+                randomRow = Math.floor(Math.random() * (this.rows - 2) + 1);
+                randomColumn = Math.floor(Math.random() * (this.columns - 2) + 1);
             } while (
-                randomRow === gateRow || randomColumn === gateColumn || randomRow === 0 || randomRow === this.rows - 1 || randomColumn === 0 || randomColumn === this.columns - 1
+                (randomRow === gateRow || randomColumn === gateColumn) ||
+                randomRow === 0 || randomRow === this.rows - 1 ||
+                randomColumn === 0 || randomColumn === this.columns - 1
             );
 
             // Find the path from the gate to the randomly selected point
-            const path = finder.findPath(gateColumn, gateRow, randomColumn, randomRow, pathGrid.clone());
+            let path;
+        
+            do {
+                path = finder.findPath(gateColumn, gateRow, randomColumn, randomRow, pathGrid.clone());
+
+                if (!path || path.length === 0) {
+                    // No valid path found, regenerate random point
+                    do {
+                        randomRow = Math.floor(Math.random() * (this.rows - 2)) + 1;
+                        randomColumn = Math.floor(Math.random() * (this.columns - 2)) + 1;
+                    } while (
+                        (randomRow === gateRow || randomColumn === gateColumn) ||
+                        randomRow === 0 || randomRow === this.rows - 1 ||
+                        randomColumn === 0 || randomColumn === this.columns - 1
+                    );
+                }
+            } while (!path || path.length === 0);
 
             // Place lanes
             path.forEach(([column, row], index) => {
                 if (row === gateRow && column === gateColumn) return; // Skip the gate itself
                 if (row === randomRow && column === randomColumn) return; // Skip the target point
-            
-                // Determine the direction of the path argument
+
+                // Check if the target tile is a border tile
+                const targetTile = this.grid[row][column];
+                
+                // Skip the borders
+                if (targetTile === "‖" || targetTile === "═" || targetTile === "╔" || targetTile === "╚" || targetTile === "╗" || targetTile === "╝") return;
+
+                // Determine the direction of the path
                 const nextRow = path[index + 1]?.[1];
                 const nextColumn = path[index + 1]?.[0];
+                // ngl no idea how this is doing this but it works so I'm not touching it
 
                 let symbol;
-
                 if (nextRow === row) {
                     symbol = "-";
                 } else if (nextColumn === column) {
@@ -147,7 +171,7 @@ class ParkingGarage {
             // Place parking spaces next to vertical lanes
             if (this.grid[row][column] === "|") {
                 // Check if there's space to the left of the lane
-                if (column > 0 && this.grid[row][column-1] === " ") {
+                if (column-1 > 0 && this.grid[row][column-1] === " ") {
                     this.grid[row][column-1] = "P";
 
                     this.parkingSpacesIndexes.push(`${row},${column-1}`);
@@ -164,7 +188,7 @@ class ParkingGarage {
             // Place parking spaces next to horizontal lanes
             if (this.grid[row][column] === "-") {
                 // Check if there's space above the lane
-                if (row > 0 && this.grid[row-1][column] === " ") {
+                if (row-1 > 0 && this.grid[row-1][column] === " ") {
                     this.grid[row - 1][column] = "P";
 
                     this.parkingSpacesIndexes.push(`${row-1},${column}`);
@@ -187,40 +211,19 @@ class ParkingGarage {
 
         // Number of cars generated
         let carsGenerated = 0;
-        let carsParked = this.calculateUsageLevel(this.usage);
+        let usagePercentage = this.calculateUsageLevel(this.usage);
+
+        let carsParked = this.carCount * usagePercentage;
+        let carsEntering = Math.floor(this.carCount * (1 - usagePercentage));
 
         // generate cars in parking spots
-
-        // Randomly spawn cars at a random gate at random intervals
-        for (let c = 0; c < (this.carCount - carsGenerated); c++) {
-            setTimeout(() => {
-
-                // randomly pick a gate to spawn at
-                const spawnGate = getRandomElement(this.gateIndexes);
-                const gateRow = parseInt(spawnGate.split(",")[0]);
-                const gateColumn = parseInt(spawnGate.split(",")[1]);
-
-                let carDirection = this.getCarInitialDirection(gateRow, gateColumn);
-
-                if (carDirection) {
-                    this.cars[c].updateDirection(carDirection);
-
-                    // Update the car's position to the gate
-                    this.cars[c].updateLocation(gateRow, gateColumn);
-                    
-                    // render car at current location
-                    // this.grid[gateRow][gateColumn] = "C";
-
-                    // Start the car's movement
-                    this.activateCar(this.cars[c]);
-                } else {
-                    return;
-                };
-
-                // Set car's initial direction
-            }, Math.floor(Math.random() * 5000) + 1000); // between 1 and 6 seconds
-        }
+        this.spawnCarsInParkingSpaces(carsParked);
         
+        // Set the index of where the random function will start spawning cars from
+        const ranArrStart = carsParked;
+        
+        // Randomly spawn cars at a random gate at random intervals
+        this.spawnCarsRandomly(carsEntering, ranArrStart);
     };
 
     // Car movement
@@ -297,9 +300,68 @@ class ParkingGarage {
         };
     };
 
+    spawnCarsInParkingSpaces(count) {
+        // Get indexes of correct number of parking spaces
+        const selectedParkingSpaces = getRandomElements(this.parkingSpacesIndexes, count);
+
+        for (let c = 0; c < count; c++) {
+            const spaceRow = parseInt(selectedParkingSpaces[c].split(",")[0]);
+            const spaceColumn = parseInt(selectedParkingSpaces[c].split(",")[1]);
+
+            let carDirection = "d";
+            this.cars[c].updateDirection(carDirection);
+
+            // Update the car's position to the parking space
+            this.cars[c].updateLocation(spaceRow, spaceColumn);
+
+            // render car at current location
+            this.grid[spaceRow][spaceColumn] = "c";
+
+            // set car's state
+            this.cars[c].updateCurrentState("parked");
+
+            // Update original symbol
+            this.cars[c].updateOriginalSymbol("P");
+
+            // Start the car's movement
+            this.activateCar(this.cars[c]);
+        }
+    };
+
+    spawnCarsRandomly(count, arrStart) {
+        for (let c = 0; c < count; c++) {
+            setTimeout(() => {
+
+                // randomly pick a gate to spawn at
+                const spawnGate = getRandomElement(this.gateIndexes);
+                const gateRow = parseInt(spawnGate.split(",")[0]);
+                const gateColumn = parseInt(spawnGate.split(",")[1]);
+
+                let carDirection = this.getCarInitialDirection(gateRow, gateColumn);
+
+                if (carDirection) {
+                    this.cars[arrStart+c].updateDirection(carDirection);
+
+                    // Update the car's position to the gate
+                    this.cars[arrStart+c].updateLocation(gateRow, gateColumn);
+
+                    // render car at current location
+                    this.grid[gateRow][gateColumn] = "C";
+
+                    // Start the car's movement
+                    this.activateCar(this.cars[arrStart+c]);
+                } else {
+                    return;
+                }
+
+            }, Math.floor(Math.random() * 4000) + 1000); // between 1 and 5
+        }
+    };
+
     generateLicensePlates(count) {
         const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         const numbers = "0123456789";
+        const states = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"];
         const plates = [];
 
         for (let i = 0; i < count; i++) {
@@ -313,7 +375,10 @@ class ParkingGarage {
             for (let j = 0; j < 3; j++) {
                 plate += getRandomElement(numbers);
             };
-            plates.push({state: "SC", number: plate});
+
+            // Generate state
+            let state = getRandomElement(states);
+            plates.push({state: state, number: plate});
         };
 
         return plates;
@@ -325,25 +390,25 @@ class ParkingGarage {
         // Figure out number of cars to start parked
         switch(usage) {
             case "low":
-                usagePercentage = Math.floor(this.carCount*0.2);
+                usagePercentage = this.carCount*0.2;
                 break;
             case "medium":
-                usagePercentage = Math.floor(this.carCount*0.4);
+                usagePercentage = this.carCount*0.4;
                 break;
             case "high":
-                usagePercentage = Math.floor(this.carCount*0.6);
+                usagePercentage = this.carCount*0.6;
                 break;
             case "insane":
-                usagePercentage = Math.floor(this.carCount*0.8);
+                usagePercentage = this.carCount*0.8;
                 break;
             default:
                 // generate random usage level
-                let random = ((Math.random() * 0.6) + 0.2).toFixed(1);
-                usagePercentage = Math.floor(this.carCount*random);
+                let random = (Math.random() * 0.6) + 0.2;
+                usagePercentage = this.carCount*random;
                 break;
         };
 
-        return usagePercentage;
+        return (usagePercentage/10).toFixed(1);
     };
 
     getCarInitialDirection(gateRow, gateColumn) {
