@@ -42,9 +42,15 @@ class Car {
         this.originalSymbol = symbol;
     };
 
+    // Update the car's current state
     updateCurrentState(state) {
         this.currentState = state;
     };
+
+    // Update the car's parking timer
+    updateParkingTimer(parkingTime) {
+        this.parkingTimer = parkingTime ? parkingTime : 100;
+    }
 
     // Main functions
     

@@ -320,6 +320,12 @@ class ParkingGarage {
             // set car's state
             this.cars[c].updateCurrentState("parked");
 
+            // Generate a random time to be parked for (in seconds)
+            const ranParkingTime = Math.floor(Math.random() * 100) + 10;
+
+            // set car's parking timer
+            this.cars[c].updateParkingTimer(ranParkingTime);
+
             // Update original symbol
             this.cars[c].updateOriginalSymbol("P");
 
